@@ -1,0 +1,18 @@
+{
+    "/quote": {
+      "target": "https://api-v2-sandbox.postmates.com/v1/customers/cus_NI5G9IqffXSlWV/delivery_quotes",
+      "secure": true,
+      "changeOrigin": true,
+      "pathRewrite": {
+        "^/quote": ""
+      }
+    },
+    "/delivery": {
+      "target": "https://api-v2-sandbox.postmates.com/v1/customers/cus_NI5G9IqffXSlWV/deliveries",
+      "secure": true,
+      "changeOrigin": true,
+      "pathRewrite": {
+        "^/delivery": ""
+      }
+    }
+  }
