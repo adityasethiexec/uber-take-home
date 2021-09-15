@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { AppConstants } from './app-constants';
 
 @Component({
   selector: 'app-root',
@@ -25,8 +26,10 @@ export class AppComponent implements OnInit {
     inputnumber = 0;
     duration: any;
     cartProductList = [];
+    httpOptions: any; 
     constructor(private formBuilder: FormBuilder,
-                private httpClient: HttpClient) { }
+                private httpClient: HttpClient,
+                ) { }
 
     ngOnInit() {
         this.registerForm = this.formBuilder.group({
@@ -48,16 +51,12 @@ export class AppComponent implements OnInit {
 
     onSubmit() {
         this.submitted = true;
-
+        
         // stop here if form is invalid
         if (this.registerForm.invalid) {
             return;
         }
-
         this.getQuotes();
-
-        // // display form values on success
-        // alert('SUCCESS!! :-)\n\n' + JSON.stringify(this.registerForm.value, null, 4));
     }
 
     onReset() {
@@ -72,7 +71,7 @@ export class AppComponent implements OnInit {
       this.quotesuccess = false;
       this.deliverysuccess = false;
       
-      const httpOptions = {
+      this.httpOptions = {
         headers: new HttpHeaders({
           'Content-Type': 'application/x-www-form-urlencoded',
           'Authorization': 'Basic MWNhMTc4ZjAtYzU0My00OGNmLWI4OTYtZWU3NGNkODU3YWY1Og==',
@@ -84,8 +83,7 @@ export class AppComponent implements OnInit {
 
 
       // Get a Quote first from the Quote API
-
-      this.httpClient.post('/quote', body, httpOptions)
+      this.httpClient.post('/quote', body, this.httpOptions)
         .subscribe( 
         (res: any) => {
           this.loader = false;
@@ -102,25 +100,7 @@ export class AppComponent implements OnInit {
           this.duration = res.duration;
           
           // If getting the quote was successful, we make an API call to delivery API
-          let deliveryBody =  this.createParamsforDelivery(res.id)
-        
-          // Created a proxy server in proxy.conf.json to avoid the CORS error on localhost
-          this.httpClient.post('/delivery', deliveryBody, httpOptions)
-          .subscribe((res:any) => {
-            this.deliveryLoader = false; 
-            this.quotesuccess = false;
-            this.deliverysuccess = true;
-            // Status can be Pending, pickup, pickup complete, drop-off, delivered, cancelled, returned, ongoing. 
-            this.deliveryStatus = res.status; 
-              console.log(res);
-          },
-          (error : any) => {
-            this.deliveryLoader = false; 
-            this.fail = true; 
-            this.quotesuccess = false;
-            this.handleErrors(error);
-          });
-
+          this.createDelivery(res.id);
         } ,
         (error : any) => {
           this.loader = false;
@@ -157,12 +137,48 @@ export class AppComponent implements OnInit {
             return deliveryBody; 
     } 
 
+
+    createDelivery(quoteID) {
+        let deliveryBody =  this.createParamsforDelivery(quoteID);
+          // Created a proxy server in proxy.conf.json to avoid the CORS error on localhost
+          this.httpClient.post('/delivery', deliveryBody, this.httpOptions)
+          .subscribe((res:any) => {
+            this.deliveryLoader = false; 
+            this.quotesuccess = false;
+            this.deliverysuccess = true;
+            // Status can be Pending, pickup, pickup complete, drop-off, delivered, cancelled, returned, ongoing. 
+            this.deliveryStatus = res.status; 
+              console.log(res);
+          },
+          (error : any) => {
+            this.deliveryLoader = false; 
+            this.fail = true; 
+            this.quotesuccess = false;
+            this.handleErrors(error);
+          });
+    }
+
+   // We handle errors via switch statements using App Constants. 
+    
     handleErrors(error) {
-        if (error.status = 429) {
-          this.errorMessage= 'You have exceeded the maximum limit for creating deliveries, please try again later';
-        }
-        if (error.status = 400) {
-          this.errorMessage= error.error.message;
+        let status = error.status; 
+
+        switch (status) {
+            case 429:
+                this.errorMessage= AppConstants.CUSTOMER_LIMITED;
+                break;
+            case 402:
+              this.errorMessage= AppConstants.CUSTOMER_SUSPENDED;
+              break;
+            case 403:
+              this.errorMessage= AppConstants.CUSTOMER_BLOCKED;
+              break;
+            case 503:
+              this.errorMessage= AppConstants.ROBO_COURIERS_BUSY;
+              break;
+            case 400:
+              this.errorMessage= error.error.message; 
+            break;
         }
     }
 
